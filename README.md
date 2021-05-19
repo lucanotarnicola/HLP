@@ -1,4 +1,4 @@
-The Hidden Lattice Problem
+**The Hidden Lattice Problem**
 
 This repository contains the source code for the algorithms described in the article 'The Hidden Lattice Problem' by Luca Notarnicola and Gabor Wiese.
 The implementation is in SageMath 9.2.
