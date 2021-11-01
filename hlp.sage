@@ -1,3 +1,11 @@
+#This is the source code for "The Hidden Lattice Problem"
+#The implementation is in SageMath 9.2, which can be downloaded from https://www.sagemath.org
+#Content:
+# implementation of our adaptation of the orthogonal lattice attack following the algorithm of Nguyen-Stern (Algorithm I)
+# implementation of our alternative algorithm based on the dual lattice (Algorithm II)
+# various functions to run tests for related problems DHLP, NHLP
+
+
 from sage.modules.free_module_integer import IntegerLattice
 from sage.matrix.matrix_integer_dense_saturation import p_saturation 
 from time import time
@@ -31,7 +39,10 @@ def ortho_lattice_mod(B,N):
 		mat[m-r:m,m-r:m]=N*matrix.identity(r)
 	else:
 		print('no inverse')
-	return mat.transpose()
+	if gcd(B2.determinant(),N)==1:
+		return mat.transpose()
+	else:
+		return False
 
 def ortho_lattice(B):       
 #Input: Basis matrix B(rxm) of rank r<m lattice in ZZ^m
@@ -62,8 +73,11 @@ def span_lattice_mod(B,N):
 		mat[m-r:m,0:m-r]=matrix(ZZ,B0) 
 		mat[m-r:m,m-r:m]=matrix.identity(r) 
 	else: 
-		print('no inverse') 
-	return mat 
+		print('no inverse')
+	if gcd(B2.determinant(),N)==1: 
+		return mat
+	else:
+		return False 
 
 def completion(L):
 #Input: a lattice L
@@ -156,28 +170,32 @@ def ortho_algo(h):
 	
 	#Step 1: compute a reduced basis of the lattice of vectors orthogonal to B modulo N
 	orthoB=ortho_lattice_mod(B,N)
-	#compute reduced basis of orthoB
-	t_1=cputime()
-	orthoBLLL=orthoB.LLL()
-	#extract first m-n vectors and compute basis of orthogonal lattice
-	ext=orthoBLLL[0:m-n]
-	print('timing step 1:',cputime(t_1))
+	if orthoB==False:
+		print('sample a new problem')
+		check=False
+	else:
+		#compute reduced basis of orthoB
+		t_1=cputime()
+		orthoBLLL=orthoB.LLL()
+		#extract first m-n vectors and compute basis of orthogonal lattice
+		ext=orthoBLLL[0:m-n]
+		print('timing step 1:',cputime(t_1))
 
-	#Step 2: compute a reduced basis of the ZZ-orthogonal to the extracted vectors
-	t_2=cputime()
-	ortho_ext=ortho_lattice(ext)
-	print('timing step 2:',cputime(t_2))
+		#Step 2: compute a reduced basis of the ZZ-orthogonal to the extracted vectors
+		t_2=cputime()
+		ortho_ext=ortho_lattice(ext)
+		print('timing step 2:',cputime(t_2))
 	
-	#Step 3: verify the solution and compute the size of the output
-	t_3=cputime()
-	#recovered lattice
-	reclat=ortho_ext.row_space(ZZ)
-	check=reclat==L
-	print('recovered lattice is equal to L:',check)
-	print('log(size) output basis:',log(size_basis(ortho_ext),2).n())
-	print('timing step 3:',cputime(t_3))
+		#Step 3: verify the solution and compute the size of the output
+		t_3=cputime()
+		#recovered lattice
+		reclat=ortho_ext.row_space(ZZ)
+		check=reclat==L
+		print('recovered lattice is equal to L:',check)
+		print('log(size) output basis:',log(size_basis(ortho_ext),2).n())
+		print('timing step 3:',cputime(t_3))
 	
-	print('total timing:',cputime(t_1))
+		print('total timing:',cputime(t_1))
 	return check
 
 def ortho_algo_compute_N1(h):
@@ -191,14 +209,17 @@ def ortho_algo_compute_N1(h):
 
 	#Step 1: compute a reduced basis of the lattice of vectors orthogonal to B modulo N
 	orthoB=ortho_lattice_mod(B,N)
-	#compute reduced basis of orthoB
-	L_ortho=ortho_lattice(L.basis_matrix()).row_space(ZZ)
-	t_1=cputime()
-	orthoBLLL=orthoB.LLL()
-	#extract first m-n vectors and compute basis of orthogonal lattice
-	ext=orthoBLLL[0:m-n]
-	print('timing step 1:',cputime(t_1))
-	print('ext is sublattice of L_ortho:',ext.row_space(ZZ).is_submodule(L_ortho))
+	if orthoB==False:
+		print('sample a new problem')
+	else:
+		#compute reduced basis of orthoB
+		L_ortho=ortho_lattice(L.basis_matrix()).row_space(ZZ)
+		t_1=cputime()
+		orthoBLLL=orthoB.LLL()
+		#extract first m-n vectors and compute basis of orthogonal lattice
+		ext=orthoBLLL[0:m-n]
+		print('timing step 1:',cputime(t_1))
+		print('ext is sublattice of L_ortho:',ext.row_space(ZZ).is_submodule(L_ortho))
 	
 
 #C: Algorithm II
@@ -213,8 +234,7 @@ def heuristic_logN_II(h):
 	mu=size_L
 
 	log_modulus=ceil(n/r*(alpha+1)*log(mu,2)
-					+m/r*(alpha+1)*hermite
-					+m/(2*r)*log(m/(2*pi*e),2))
+					+(alpha+1)*m*n/r*hermite)
 	return log_modulus
 
 def span_algo(h):
@@ -229,35 +249,39 @@ def span_algo(h):
 	
 	#Step 1: compute a reduced basis of the lattice in the Z-span of B modulo N
 	spanB=span_lattice_mod(B,N)
-	#compute reduced basis of spanB
-	s_1=cputime()
-	spanBLLL=spanB.LLL()
-	#extract first n vectors 
-	ext=spanBLLL[0:n]
-	print('timing step 1:',cputime(s_1))
+	if (spanB==False) or (is_prime(N)==False):
+		print('sample a new problem using prime N')
+		check=False
+	else:
+		#compute reduced basis of spanB
+		s_1=cputime()
+		spanBLLL=spanB.LLL()
+		#extract first n vectors 
+		ext=spanBLLL[0:n]
+		print('timing step 1:',cputime(s_1))
 	
-	#Step 2: compute completion of the lattice spanned by the extracted vectors
-	s_2=cputime()
-	#comp_ext=ext.saturation()				     #using build-in Sage completion function
-	#comp_ext=completion_using_orthogonal(ext)	 #using double orthogonal complement calculation
-	#comp_ext=p_saturation(ext,N)			     #using build-in Sage p-completion function
-	comp_ext=local_completion(ext,N)		     #using our own local_completion function 
-	print('timing step 2:',cputime(s_2))
-	#print('index',ext.index_in_saturation().factor())	#factors the index
+		#Step 2: compute completion of the lattice spanned by the extracted vectors
+		s_2=cputime()
+		#comp_ext=ext.saturation()				     #using build-in Sage completion function
+		#comp_ext=completion_using_orthogonal(ext)	 #using double orthogonal complement calculation
+		#comp_ext=p_saturation(ext,N)			     #using build-in Sage p-completion function
+		comp_ext=local_completion(ext,N)		     #using our own local_completion function 
+		print('timing step 2:',cputime(s_2))
+		#print('index',ext.index_in_saturation().factor())	#factors the index
 
-	#Step 3: verify the solution and compute/reduce the size of the output
-	s_3=cputime()
-	reclat=comp_ext.row_space(ZZ)
-	check=reclat==L
-	print('recovered lattice is equal to L:',check)
+		#Step 3: verify the solution and compute/reduce the size of the output
+		s_3=cputime()
+		reclat=comp_ext.row_space(ZZ)
+		check=reclat==L
+		print('recovered lattice is equal to L:',check)
 
-	print('log(size) output basis before LLL:',log(size_basis(comp_ext),2).n())
-	print('output basis is LLL reduced:',comp_ext.is_LLL_reduced())
-	comp_ext_LLL=comp_ext.LLL()
-	print('log(size) output basis after LLL:',log(size_basis(comp_ext_LLL),2).n())
-	print('timing step 3:',cputime(s_3))
+		print('log(size) output basis before LLL:',log(size_basis(comp_ext),2).n())
+		print('output basis is LLL reduced:',comp_ext.is_LLL_reduced())
+		comp_ext_LLL=comp_ext.LLL()
+		print('log(size) output basis after LLL:',log(size_basis(comp_ext_LLL),2).n())
+		print('timing step 3:',cputime(s_3))
 
-	print('total timing:',cputime(s_1))
+		print('total timing:',cputime(s_1))
 	return check
 
 def span_algo_compute_N2(h):
@@ -271,14 +295,17 @@ def span_algo_compute_N2(h):
 	
 	#Step 1: compute a reduced basis of the lattice in the Z-span of B modulo N
 	spanB=span_lattice_mod(B,N)
-	#compute reduced basis of spanB
-	t_1=cputime()
-	spanBLLL=spanB.LLL()
+	if spanB==False:
+		print('sample a new problem')
+	else:
+		#compute reduced basis of spanB
+		t_1=cputime()
+		spanBLLL=spanB.LLL()
 	
-	#extract first n vectors and compute completion
-	ext=spanBLLL[0:n]
-	print('timing step 1:',cputime(t_1))
-	print('ext is sublattice of comp_L:',ext.row_space(ZZ).is_submodule(completion(L)))
+		#extract first n vectors and compute completion
+		ext=spanBLLL[0:n]
+		print('timing step 1:',cputime(t_1))
+		print('ext is sublattice of comp_L:',ext.row_space(ZZ).is_submodule(completion(L)))
 	
 #D: Variants of the HLP
 
@@ -481,12 +508,19 @@ def ortho_algo_truncated(h):
 def outputs():
 #Run various test on HLP and NHLP
 	#---HLP's
+	h1=gen_hlp(5,20,2,2^10,next_prime(2^120))
+	#h1=gen_hlp(10,100,5,2^15,next_prime(2^50))
+	#h2=gen_hlp(20,100,5,2^15,next_prime(2^100))
+	#h3=gen_hlp(40,100,5,2^15,next_prime(2^250))
+	#h4=gen_hlp(80,100,5,2^15,next_prime(2^1400))
+	#h5=gen_hlp(90,100,5,2^15,next_prime(2^3100))
+
 	#h1=gen_hlp(150,200,60,2^10,next_prime(2^140))
 	#h1=gen_hlp(150,200,110,2^10,next_prime(2^90))
 	#h1=gen_hlp(180,200,175,2^10,next_prime(2^140))
 	#h1=gen_hlp(100,300,80,2^10,next_prime(2^75)) 
 	#h1=gen_hlp(200,300,150,2^10,next_prime(2^75)) 
-	h1=gen_hlp(160,320,80,2^10,next_prime(2^80)) 
+	#h1=gen_hlp(160,320,80,2^10,next_prime(2^80)) 
 	#h1=gen_hlp(260,400,200,2^10,next_prime(2^75))
 	#h1=gen_hlp(250,300,230,2^20,next_prime(2^160)) s
 	#h1=gen_hlp(50,100,5,2^10,next_prime(2^275))
@@ -503,8 +537,8 @@ def outputs():
 		print('heursitic lower bound I for log(N):',heuristic_logN_I(h))
 		print('heursitic lower bound II for log(N):',heuristic_logN_II(h))
 		
-	#	print('Algorithm I for HLP')
-	#	print(ortho_algo(h))
+		print('Algorithm I for HLP')
+		print(ortho_algo(h))
 		#print(ortho_algo_compute_N1(h))
 
 		print('------------')
